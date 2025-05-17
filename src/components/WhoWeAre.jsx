@@ -205,7 +205,7 @@ const WhoWeAre = () => {
 
         
       </div>
-      <h2 ref={addTextElement} className="absolute bottom-10 left-120 transform -translate-x-1/2 text-center uppercase general text-sm transition-colors duration-500">
+      <h2 ref={addTextElement} className="absolute bottom-10 left-1/2 transform -translate-x-1/2 text-center uppercase general text-sm transition-colors duration-500">
         Zentry envisions a future where players, emerging tech, <br /> and a new economy unite at the convergence of gaming and AI.
         </h2>
     </div>
