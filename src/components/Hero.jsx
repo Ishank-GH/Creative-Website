@@ -9,6 +9,7 @@ gsap.registerPlugin(ScrollTrigger);
 const Hero = () => {
   const [currentIndex, setCurrentIndex] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [preloadedVideos, setPreloadedVideos] = useState({});
   const nextVid = useRef(null);
   const videoFrameRef = useRef(null);
   const previewCardRef = useRef(null);
@@ -212,6 +213,24 @@ const Hero = () => {
       };
     }
   }, [currentIndex, isTransitioning]);
+
+  const preloadVideo = (index) => {
+    const src = getVideoSrc(index);
+    if (!preloadedVideos[src]) {
+      const video = document.createElement('video');
+      video.src = src;
+      video.preload = 'auto';
+      video.muted = true;
+      video.load();
+      setPreloadedVideos(prev => ({ ...prev, [src]: true }));
+    }
+  };
+
+  useEffect(() => {
+    // Preload the next video after currentIndex changes
+    const nextIndex = (currentIndex % totalVideos) + 1;
+    preloadVideo(nextIndex);
+  }, [currentIndex]);
 
   const getNextVideoNumber = () => {
     return (currentIndex % totalVideos) + 1;

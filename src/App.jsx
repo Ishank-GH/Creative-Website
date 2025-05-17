@@ -25,10 +25,8 @@ const App = () => {
     // Collect all image/video/audio/font URLs
     const assetUrls = [
       // Images
-      "/img/gallery-2.webp", "/img/gallery-3.webp", "/img/entry-1.webp", "/img/entry-2.webp", "/img/entry-3.webp",
-      "/img/stones.webp", "/img/about.webp", "/img/swordman.webp", "/img/contact-1.webp", "/img/contact-2.webp", "/img/swordman-partial.webp", "/img/zentry-symbol-white.png",
+      "/img/stones.webp", "/img/about.webp","/img/zentry-symbol-white.png",
       // Videos
-      "/videos/feature-1.mp4", "/videos/feature-2.mp4", "/videos/feature-3.mp4", "/videos/feature-4.mp4", "/videos/feature-5.mp4",
       "/videos/hero-1.mp4", "/videos/hero-2.mp4", "/videos/hero-3.mp4", "/videos/hero-4.mp4",
       // Audio
       "/audio/loop.mp3",
