@@ -27,27 +27,13 @@ const NavBar = () => {
     setIsIndicatorActive((prev) => !prev);
   };
 
-  // Manage audio playback with preload and error handling
+  // Manage audio playback
   useEffect(() => {
-    const loadAudio = async () => {
-      if (audioElementRef.current && isAudioPlaying) {
-        try {
-          audioElementRef.current.preload = 'auto';
-          const playPromise = audioElementRef.current.play();
-          if (playPromise !== undefined) {
-            await playPromise;
-          }
-        } catch (error) {
-          console.warn("Audio playback failed:", error);
-          setIsAudioPlaying(false);
-          setIsIndicatorActive(false);
-        }
-      } else if (audioElementRef.current) {
-        audioElementRef.current.pause();
-      }
-    };
-    
-    loadAudio();
+    if (isAudioPlaying) {
+      audioElementRef.current.play();
+    } else {
+      audioElementRef.current.pause();
+    }
   }, [isAudioPlaying]);
 
   useEffect(() => {
@@ -116,10 +102,10 @@ const NavBar = () => {
               <audio
                 ref={audioElementRef}
                 className="hidden"
-                preload="none"
-              >
-                <source src="/audio/loop.mp3" type="audio/mpeg" />
-              </audio>
+                src="/audio/loop.mp3"
+                loop
+                autoPlay
+              />
               {[1, 2, 3, 4].map((bar) => (
                 <div
                   key={bar}
