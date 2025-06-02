@@ -53,47 +53,7 @@ const Hero = () => {
     };
   }, [currentIndex]);
 
-  // Load videos only when in viewport
-  useEffect(() => {
-    const loadVideo = async (index) => {
-      const src = getVideoSrc(index);
-      if (!videosLoaded[src] && isInViewport) {
-        try {
-          const response = await fetch(src);
-          if (!response.ok) throw new Error('Network response was not ok');
-          
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          setVideosLoaded(prev => ({ ...prev, [src]: url }));
 
-          // Preload next video in background
-          if (index < totalVideos) {
-            const nextSrc = getVideoSrc(index + 1);
-            if (!videosLoaded[nextSrc]) {
-              fetch(nextSrc)
-                .then(res => res.blob())
-                .then(blob => {
-                  const nextUrl = URL.createObjectURL(blob);
-                  setVideosLoaded(prev => ({ ...prev, [nextSrc]: nextUrl }));
-                })
-                .catch(console.error);
-            }
-          }
-        } catch (error) {
-          console.error(`Error loading video ${index}:`, error);
-        }
-      }
-    };
-
-    if (isInViewport) {
-      loadVideo(currentIndex);
-    }
-
-    return () => {
-      // Cleanup URLs when component unmounts
-      Object.values(videosLoaded).forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [currentIndex, isInViewport]);
 
   // Initial setup
   useEffect(() => {

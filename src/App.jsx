@@ -77,10 +77,24 @@ const App = () => {
           img.onload = resolve;
           img.onerror = reject;
         } else if (url.endsWith('.mp3')) {
-          const audio = new Audio();
-          audio.src = url;
-          audio.oncanplaythrough = resolve;
-          audio.onerror = reject;
+          fetch(url)
+            .then(response => response.blob())
+            .then(blob => {
+              const audio = new Audio();
+              audio.src = URL.createObjectURL(blob);
+              audio.oncanplaythrough = () => {
+                URL.revokeObjectURL(audio.src);
+                resolve();
+              };
+              audio.onerror = reject;
+            })
+            .catch(() => {
+              // If fetch fails, try direct loading as fallback
+              const audio = new Audio();
+              audio.src = url;
+              audio.oncanplaythrough = resolve;
+              audio.onerror = reject;
+            });
         } else if (url.endsWith('.woff2')) {
           // Load fonts in parallel without blocking
           resolve();
