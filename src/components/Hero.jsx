@@ -63,9 +63,16 @@ const Hero = () => {
       mainVideoRef.current.load();
       
       // Play when metadata is loaded
+      let playAttempt = null;
+      
       mainVideoRef.current.onloadedmetadata = () => {
-        mainVideoRef.current.play().catch(error => {
-          console.warn("Video autoplay was prevented:", error);
+        if (playAttempt) {
+          playAttempt.catch(() => {}); // Ignore previous play attempt
+        }
+        playAttempt = mainVideoRef.current.play().catch(error => {
+          if (error.name !== 'AbortError') {
+            console.warn("Video autoplay was prevented:", error);
+          }
         });
       };
     }

@@ -57,20 +57,52 @@ const App = () => {
     };
 
     const loadAsset = (url) => {
+      // Ensure URL is valid
+      if (!url || typeof url !== 'string') {
+        return Promise.reject(new Error('Invalid URL'));
+      }
+
+      // Remove any leading/trailing whitespace and ensure proper path
+      const cleanUrl = url.trim().startsWith('/') ? url.trim() : `/${url.trim()}`;
+      
       return new Promise((resolve, reject) => {
         if (url.endsWith('.mp4')) {
-          fetch(url)
-            .then(response => response.blob())
-            .then(blob => {
-              const video = document.createElement('video');
-              video.src = URL.createObjectURL(blob);
-              video.onloadedmetadata = () => {
-                URL.revokeObjectURL(video.src);
-                resolve();
-              };
-              video.onerror = reject;
-            })
-            .catch(reject);
+          const video = document.createElement('video');
+          video.crossOrigin = 'anonymous';
+          video.preload = 'metadata';
+          
+          // First try direct loading
+          const tryLoad = () => {
+            video.src = url;
+            video.load();
+            
+            return new Promise((res, rej) => {
+              video.onloadedmetadata = () => res();
+              video.onerror = () => rej();
+              
+              // Timeout after 5 seconds
+              setTimeout(() => rej('Timeout'), 5000);
+            });
+          };
+          
+          tryLoad()
+            .then(() => resolve())
+            .catch(() => {
+              // If direct loading fails, try fetch
+              fetch(url)
+                .then(response => {
+                  if (!response.ok) throw new Error('Network response not ok');
+                  return response.blob();
+                })
+                .then(blob => {
+                  video.src = URL.createObjectURL(blob);
+                  video.onloadedmetadata = () => {
+                    URL.revokeObjectURL(video.src);
+                    resolve();
+                  };
+                })
+                .catch(reject);
+            });
         } else if (url.endsWith('.webp') || url.endsWith('.png')) {
           const img = new Image();
           img.src = url;
@@ -132,8 +164,11 @@ const App = () => {
     // Preload fonts in parallel
     const fontUrls = totalAssets.filter(url => url.endsWith('.woff2'));
     Promise.all(
-      fontUrls.map(url => document.fonts.load(`1em "${url.split('/').pop().split('.')[0]}"}`))
-    ).catch(console.error);
+      fontUrls.map(url => {
+        const fontName = url.split('/').pop().split('.')[0];
+        return document.fonts.load(`1em "${fontName}"`);
+      })
+    ).catch(error => console.error('Font loading error:', error));
   }, [assets]);
 
   useEffect(() => {
