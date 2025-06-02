@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
@@ -21,52 +21,106 @@ const App = () => {
   const [loaded, setLoaded] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  // Organize assets by priority
+  const assets = useMemo(() => ({
+    critical: [
+      "/videos/hero-1.mp4",
+      "/img/stones.webp",
+      "/img/about.webp",
+      "/img/zentry-symbol-white.png"
+    ],
+    important: [
+      "/videos/hero-2.mp4",
+      "/audio/loop.mp3"
+    ],
+    nonCritical: [
+      "/videos/hero-3.mp4",
+      "/videos/hero-4.mp4",
+      "/fonts/robert-medium.woff2",
+      "/fonts/zentry-regular.woff2",
+      "/fonts/robert-regular.woff2",
+      "/fonts/general.woff2",
+      "/fonts/circularweb-book.woff2"
+    ]
+  }), []);
+
   useEffect(() => {
-    // Collect all image/video/audio/font URLs
-    const assetUrls = [
-      // Images
-      "/img/stones.webp", "/img/about.webp","/img/zentry-symbol-white.png",
-      // Videos
-      "/videos/hero-1.mp4", "/videos/hero-2.mp4", "/videos/hero-3.mp4", "/videos/hero-4.mp4",
-      // Audio
-      "/audio/loop.mp3",
-      // Fonts (optional, usually browser handles)
-      "/fonts/robert-medium.woff2", "/fonts/zentry-regular.woff2", "/fonts/robert-regular.woff2", "/fonts/general.woff2", "/fonts/circularweb-book.woff2"
-    ];
-
     let loadedCount = 0;
-    const total = assetUrls.length;
+    const totalAssets = [...assets.critical, ...assets.important, ...assets.nonCritical];
+    const total = totalAssets.length;
 
-    function checkDone() {
-      loadedCount++;
-      setProgress(Math.round((loadedCount / total) * 100));
-      if (loadedCount >= total) setLoaded(true);
-    }
+    const updateProgress = (increment = 1) => {
+      loadedCount += increment;
+      const percentage = Math.round((loadedCount / total) * 100);
+      setProgress(percentage);
+      if (percentage >= 100) setLoaded(true);
+    };
 
-    assetUrls.forEach(url => {
-      if (url.endsWith('.mp4')) {
-        const video = document.createElement('video');
-        video.src = url;
-        video.oncanplaythrough = checkDone;
-        video.onerror = checkDone;
-      } else if (url.endsWith('.webp') || url.endsWith('.png') || url.endsWith('.jpg')) {
-        const img = new window.Image();
-        img.src = url;
-        img.onload = checkDone;
-        img.onerror = checkDone;
-      } else if (url.endsWith('.mp3')) {
-        const audio = document.createElement('audio');
-        audio.src = url;
-        audio.oncanplaythrough = checkDone;
-        audio.onerror = checkDone;
-      } else if (url.endsWith('.woff2')) {
-        // Font loading (optional)
-        document.fonts.load(`1em "zentry"`).then(checkDone).catch(checkDone);
-      } else {
-        checkDone();
+    const loadAsset = (url) => {
+      return new Promise((resolve, reject) => {
+        if (url.endsWith('.mp4')) {
+          fetch(url)
+            .then(response => response.blob())
+            .then(blob => {
+              const video = document.createElement('video');
+              video.src = URL.createObjectURL(blob);
+              video.onloadedmetadata = () => {
+                URL.revokeObjectURL(video.src);
+                resolve();
+              };
+              video.onerror = reject;
+            })
+            .catch(reject);
+        } else if (url.endsWith('.webp') || url.endsWith('.png')) {
+          const img = new Image();
+          img.src = url;
+          img.onload = resolve;
+          img.onerror = reject;
+        } else if (url.endsWith('.mp3')) {
+          const audio = new Audio();
+          audio.src = url;
+          audio.oncanplaythrough = resolve;
+          audio.onerror = reject;
+        } else if (url.endsWith('.woff2')) {
+          // Load fonts in parallel without blocking
+          resolve();
+        }
+      });
+    };
+
+    // Load assets in priority order
+    const loadAssets = async () => {
+      try {
+        // Load critical assets first
+        await Promise.all(assets.critical.map(url => 
+          loadAsset(url).then(() => updateProgress())
+        ));
+
+        // Load important assets
+        Promise.all(assets.important.map(url => 
+          loadAsset(url).then(() => updateProgress())
+        ));
+
+        // Load non-critical assets in background
+        assets.nonCritical.forEach(url => {
+          loadAsset(url).then(() => updateProgress());
+        });
+
+      } catch (error) {
+        console.error('Error loading assets:', error);
+        // Continue loading even if some assets fail
+        updateProgress();
       }
-    });
-  }, []);
+    };
+
+    loadAssets();
+
+    // Preload fonts in parallel
+    const fontUrls = totalAssets.filter(url => url.endsWith('.woff2'));
+    Promise.all(
+      fontUrls.map(url => document.fonts.load(`1em "${url.split('/').pop().split('.')[0]}"}`))
+    ).catch(console.error);
+  }, [assets]);
 
   useEffect(() => {
     window.lenis = new Lenis({

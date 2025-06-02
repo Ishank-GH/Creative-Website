@@ -9,7 +9,7 @@ gsap.registerPlugin(ScrollTrigger);
 const Hero = () => {
   const [currentIndex, setCurrentIndex] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [preloadedVideos, setPreloadedVideos] = useState({});
+  const [videosLoaded, setVideosLoaded] = useState({});
   const nextVid = useRef(null);
   const videoFrameRef = useRef(null);
   const previewCardRef = useRef(null);
@@ -24,14 +24,90 @@ const Hero = () => {
 
   const getVideoSrc = (index) => `/videos/hero-${index}.mp4`;
 
-  // Initial setup only
+  // Video loading effect
+  useEffect(() => {
+    const loadVideo = async (index) => {
+      const src = getVideoSrc(index);
+      if (!videosLoaded[src]) {
+        try {
+          const response = await fetch(src);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          setVideosLoaded(prev => ({ ...prev, [src]: url }));
+        } catch (error) {
+          console.error(`Error loading video ${index}:`, error);
+        }
+      }
+    };
+
+    // Load first video immediately
+    loadVideo(currentIndex);
+
+    // Load next video
+    const nextIndex = (currentIndex % totalVideos) + 1;
+    loadVideo(nextIndex);
+
+    // Cleanup function
+    return () => {
+      Object.values(videosLoaded).forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [currentIndex]);
+
+  // Load videos only when in viewport
+  useEffect(() => {
+    const loadVideo = async (index) => {
+      const src = getVideoSrc(index);
+      if (!videosLoaded[src] && isInViewport) {
+        try {
+          const response = await fetch(src);
+          if (!response.ok) throw new Error('Network response was not ok');
+          
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          setVideosLoaded(prev => ({ ...prev, [src]: url }));
+
+          // Preload next video in background
+          if (index < totalVideos) {
+            const nextSrc = getVideoSrc(index + 1);
+            if (!videosLoaded[nextSrc]) {
+              fetch(nextSrc)
+                .then(res => res.blob())
+                .then(blob => {
+                  const nextUrl = URL.createObjectURL(blob);
+                  setVideosLoaded(prev => ({ ...prev, [nextSrc]: nextUrl }));
+                })
+                .catch(console.error);
+            }
+          }
+        } catch (error) {
+          console.error(`Error loading video ${index}:`, error);
+        }
+      }
+    };
+
+    if (isInViewport) {
+      loadVideo(currentIndex);
+    }
+
+    return () => {
+      // Cleanup URLs when component unmounts
+      Object.values(videosLoaded).forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [currentIndex, isInViewport]);
+
+  // Initial setup
   useEffect(() => {
     if (mainVideoRef.current) {
-      mainVideoRef.current.src = getVideoSrc(currentIndex);
+      const src = videosLoaded[getVideoSrc(currentIndex)] || getVideoSrc(currentIndex);
+      mainVideoRef.current.src = src;
       mainVideoRef.current.load();
-      mainVideoRef.current.play().catch(error => {
-        console.warn("Video autoplay was prevented for main video:", error);
-      });
+      
+      // Play when metadata is loaded
+      mainVideoRef.current.onloadedmetadata = () => {
+        mainVideoRef.current.play().catch(error => {
+          console.warn("Video autoplay was prevented:", error);
+        });
+      };
     }
 
     // Hide expanding video container initially
@@ -47,7 +123,7 @@ const Hero = () => {
       yPercent: -50,
       visibility: 'hidden'
     });
-  }, []);
+  }, [currentIndex, videosLoaded]);
 
   useGSAP(() => {
     gsap.set(videoFrameRef.current, {
@@ -105,17 +181,16 @@ const Hero = () => {
       });
 
       const nextIndex = (currentIndex % totalVideos) + 1;
+      const nextSrc = videosLoaded[getVideoSrc(nextIndex)] || getVideoSrc(nextIndex);
+
       if (nextVid.current) {
-        // Prepare the next preview video
-        nextVid.current.src = getVideoSrc((nextIndex % totalVideos) + 1);
+        nextVid.current.src = nextSrc;
         nextVid.current.load();
       }
 
-      // Prepare expanding video with the next index (do not play yet)
       if (expandingVideoRef.current) {
-        expandingVideoRef.current.src = getVideoSrc(nextIndex);
+        expandingVideoRef.current.src = nextSrc;
         expandingVideoRef.current.load();
-        // expandingVideoRef.current.play(); // REMOVE this line
       }
 
       // Show and position the expanding video container at the card's position
@@ -216,13 +291,13 @@ const Hero = () => {
 
   const preloadVideo = (index) => {
     const src = getVideoSrc(index);
-    if (!preloadedVideos[src]) {
+    if (!videosLoaded[src]) {
       const video = document.createElement('video');
       video.src = src;
       video.preload = 'auto';
       video.muted = true;
       video.load();
-      setPreloadedVideos(prev => ({ ...prev, [src]: true }));
+      setVideosLoaded(prev => ({ ...prev, [src]: true }));
     }
   };
 
@@ -249,7 +324,10 @@ const Hero = () => {
             autoPlay
             loop
             muted
+            playsInline
+            preload="metadata"
             className="absolute left-0 top-0 size-full object-cover object-center"
+            src={videosLoaded[getVideoSrc(currentIndex)] || getVideoSrc(currentIndex)}
           />
         </div>
         <div className="z-20 mt-5 absolute w-screen h-screen inset-0 p-5 pointer-events-auto">
